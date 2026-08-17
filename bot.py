@@ -1,13 +1,18 @@
 import asyncio
 import logging
+import os
 
+from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-# ⚠️ Bu yerga BotFather bergan tokeningizni qo'ying
-BOT_TOKEN = "8635012488:AAFyTScV-mJnKiZmqo6uF9Vanr5UOeL0-v4"
+# Token endi kompyuterdagi fayl ichida emas, Render'ning
+# Environment Variables bo'limidan BOT_TOKEN nomi bilan olinadi.
+# Lokal kompyuterda sinash uchun pastdagi qatorni vaqtincha
+# o'zgartirib turishingiz mumkin: os.getenv("BOT_TOKEN", "TOKENINGIZ")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8635012488:AAFyTScV-mJnKiZmqo6uF9Vanr5UOeL0-v4")
 
 logging.basicConfig(level=logging.INFO)
 
@@ -261,9 +266,28 @@ async def fallback_handler(message: types.Message):
     )
 
 
-async def main():
-    await dp.start_polling(bot)
+# ------------------------------------------------------------
+# Render "Web Service" bo'sh turmasligi uchun oddiy http server
+# UptimeRobot aynan shu manzilga (/) so'rov yuborib botni uyg'oq tutadi
+# ------------------------------------------------------------
+
+async def health_check(request):
+    return web.Response(text="Bot ishlayapti ✅")
+
+
+async def on_startup(app):
+    # Web-server ishga tushishi bilan bot pollingini orqa fonda boshlaymiz
+    asyncio.create_task(dp.start_polling(bot))
+
+
+def main():
+    app = web.Application()
+    app.router.add_get("/", health_check)
+    app.on_startup.append(on_startup)
+
+    port = int(os.getenv("PORT", 10000))  # Render shu orqali port beradi
+    web.run_app(app, host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
